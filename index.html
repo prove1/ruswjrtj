@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>견적서</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        h1, h2 {
+            text-align: center;
+        }
+        .info {
+            text-align: right;
+            margin-right: 10%;
+        }
+        table {
+            width: 80%;
+            margin: 0 auto 20px auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #000;
+            text-align: center;
+            padding: 8px;
+        }
+        .total-sum {
+            width: 80%;
+            margin: 0 auto;
+            text-align: right;
+            font-weight: bold;
+        }
+        #grandTotalContainer {
+            width: 80%;
+            margin: 0 auto;
+            text-align: center;
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+        .hidden {
+            display: none;
+        }
+        button {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1 id="refreshButton">견적서</h1>
+    <div class="info">
+        <p>이름: 아무개</p>
+        <p>전화번호: 010-1234-1234</p>
+    </div>
+
+    <h2>품목</h2>
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th>순번</th>
+                <th>모델명</th>
+                <th>품목</th>
+                <th>수량</th>
+                <th>금액</th>
+                <th>전체금액</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 자바스크립트에서 데이터로 채워집니다. -->
+        </tbody>
+    </table>
+    <p class="total-sum">품목 전체금액 합계: <span id="productTableSum">0</span>원</p>
+
+    <h2>설치비</h2>
+    <table id="installTable">
+        <thead>
+            <tr>
+                <th>순번</th>
+                <th>이름</th>
+                <th>설치개요</th>
+                <th>수량</th>
+                <th>금액</th>
+                <th>전체금액</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 자바스크립트에서 데이터로 채워집니다. -->
+        </tbody>
+    </table>
+    <p class="total-sum">설치비 전체금액 합계: <span id="installTableSum">0</span>원</p>
+
+    <h2 id="grandTotalContainer">총 합계 금액: <span id="grandTotal">0</span>원</h2>
+
+    <script>
+        // 품목 데이터
+        const productData = [
+            { model: '모델A', item: '품목A', price: 10000, qty: 0 },
+            { model: '모델B', item: '품목B', price: 20000, qty: 0 },
+            { model: '모델C', item: '품목C', price: 30000, qty: 0 },
+            // 필요한 만큼 추가하세요.
+        ];
+
+        // 설치비 데이터
+        const installData = [
+            { name: '설치A', summary: '개요A', price: 5000, qty: 0 },
+            { name: '설치B', summary: '개요B', price: 8000, qty: 0 },
+            // 필요한 만큼 추가하세요.
+        ];
+
+        let isDisplayMode = false; // 수량 열이 텍스트로 표시되는지 여부를 나타내는 변수
+
+        // 숫자를 3자리마다 콤마로 포맷하는 함수
+        function formatNumber(num) {
+            return num.toLocaleString('ko-KR');
+        }
+
+        // 테이블에 데이터 채우기
+        function populateTable(tableId, dataArray, qtyIdPrefix, priceIdPrefix, totalIdPrefix, sumId) {
+            const tableBody = document.querySelector(`#${tableId} tbody`);
+            tableBody.innerHTML = ''; // 테이블 초기화
+            let totalSum = 0;
+            dataArray.forEach((data, index) => {
+                const qtyValue = data.qty || 0;
+                const priceValue = data.price || 0;
+                const totalPrice = qtyValue * priceValue;
+                totalSum += totalPrice;
+
+                let quantityCellContent = '';
+                if (isDisplayMode) {
+                    // 수량을 텍스트로 표시
+                    quantityCellContent = `<span>${qtyValue}</span>`;
+                } else {
+                    // 수량 입력 필드와 "+" 버튼 표시
+                    quantityCellContent = `
+                        <input type="number" id="${qtyIdPrefix}${index}" value="${qtyValue}" min="0" readonly>
+                        <button id="${qtyIdPrefix}Btn${index}" onclick="incrementQuantity('${qtyIdPrefix}${index}', ${index}, '${qtyIdPrefix}', '${priceIdPrefix}', '${totalIdPrefix}', '${sumId}', ${tableId === 'productTable' ? 'productData' : 'installData'})">+</button>
+                    `;
+                }
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${data.model || data.name}</td>
+                    <td>${data.item || data.summary}</td>
+                    <td>${quantityCellContent}</td>
+                    <td id="${priceIdPrefix}${index}">${formatNumber(priceValue)}</td>
+                    <td id="${totalIdPrefix}${index}">${formatNumber(totalPrice)}</td>
+                `;
+                if (isDisplayMode && totalPrice === 0) {
+                    row.classList.add('hidden');
+                }
+                tableBody.appendChild(row);
+
+                // 수량 변경 이벤트 리스너 추가
+                if (!isDisplayMode) {
+                    const qtyInput = document.getElementById(`${qtyIdPrefix}${index}`);
+                    qtyInput.addEventListener('change', function() {
+                        data.qty = parseInt(qtyInput.value) || 0;
+                        updateTotalPrice(dataArray, totalIdPrefix, sumId);
+                    });
+                }
+            });
+            document.getElementById(sumId).textContent = formatNumber(totalSum);
+            updateGrandTotal();
+        }
+
+        // 총 금액 업데이트
+        function updateTotalPrice(dataArray, totalIdPrefix, sumId) {
+            let totalSum = 0;
+            dataArray.forEach((data, index) => {
+                const qty = data.qty || 0;
+                const price = data.price || 0;
+                const totalPrice = qty * price;
+                const totalCell = document.getElementById(`${totalIdPrefix}${index}`);
+                if (totalCell) {
+                    totalCell.textContent = formatNumber(totalPrice);
+                }
+                totalSum += totalPrice;
+            });
+            document.getElementById(sumId).textContent = formatNumber(totalSum);
+            updateGrandTotal();
+        }
+
+        // 수량 증가 함수
+        function incrementQuantity(qtyId, index, qtyIdPrefix, priceIdPrefix, totalIdPrefix, sumId, dataArray) {
+            const qtyInput = document.getElementById(qtyId);
+            const newQty = parseInt(qtyInput.value) + 1;
+            qtyInput.value = newQty;
+            dataArray[index].qty = newQty;
+            updateTotalPrice(dataArray, totalIdPrefix, sumId);
+        }
+
+        // 총 합계 업데이트
+        function updateGrandTotal() {
+            const productTotalText = document.getElementById('productTableSum').textContent.replace(/,/g, '');
+            const installTotalText = document.getElementById('installTableSum').textContent.replace(/,/g, '');
+            const productTotal = parseInt(productTotalText) || 0;
+            const installTotal = parseInt(installTotalText) || 0;
+            const grandTotal = productTotal + installTotal;
+            document.getElementById('grandTotal').textContent = formatNumber(grandTotal);
+        }
+
+        // 수량 열을 텍스트로 변경하고 "+" 버튼 숨기기
+        function toggleDisplayMode() {
+            if (!isDisplayMode) {
+                isDisplayMode = true;
+                // 테이블 다시 그리기
+                populateTable('productTable', productData, 'productQty', 'productPrice', 'productTotal', 'productTableSum');
+                populateTable('installTable', installData, 'installQty', 'installPrice', 'installTotal', 'installTableSum');
+            }
+        }
+
+        // 페이지 새로고침 함수
+        function refreshPage() {
+            location.reload();
+        }
+
+
+        // 초기화 및 이벤트 리스너 추가
+        window.onload = function() {
+            // 테이블에 데이터 채우기
+            populateTable('productTable', productData, 'productQty', 'productPrice', 'productTotal', 'productTableSum');
+            populateTable('installTable', installData, 'installQty', 'installPrice', 'installTotal', 'installTableSum');
+
+            // "총 합계 금액:" 클릭 이벤트 추가
+            document.getElementById('grandTotalContainer').addEventListener('click', function() {
+                toggleDisplayMode();
+            });
+
+
+            // "견적서" 버튼 클릭 시 페이지 새로고침
+            document.getElementById('refreshButton').addEventListener('click', function() {
+                refreshPage();
+            });
+        }
+    </script>
+</body>
+</html>
